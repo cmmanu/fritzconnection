@@ -52,6 +52,7 @@ FRITZ_BOXINFO_FILE = "jason_boxinfo.xml"
 FRITZ_IGD_DESC_FILE = "igddesc.xml"
 FRITZ_TR64_DESC_FILE = "tr64desc.xml"
 FRITZ_DESCRIPTIONS = [FRITZ_IGD_DESC_FILE, FRITZ_TR64_DESC_FILE]
+FRITZ_PUBLIC_TR64_FOLDER = "tr064/"
 FRITZ_USERNAME_REQUIRED_VERSION = 7.24
 FRITZ_APPLICATION_ACCESS_DISABLED = """\n
     FRITZ!Box: access for applications disabled.
@@ -181,6 +182,7 @@ class FritzConnection:
         timeout: float | None = None,
         use_tls: bool = False,
         use_cache: bool = False,
+        use_public_connection: bool = False,
         verify_cache: bool = True,
         cache_directory: str | Path | None = None,
         cache_format: str | None = None,
@@ -227,6 +229,10 @@ class FritzConnection:
         settings can also defined in the environment: FRITZ_USECACHE
         (True|False), FRITZ_CACHEFORMAT (json|pickle) and
         FRITZ_CACHEDIRECTORY (a path).
+
+        `use_public_conneciton` activates the option that the connection 
+        can be established from outside. That results in a different 
+        url.
 
         If `verify_cache` is `True` it checks whether the model has
         changed or the system software has got an update. In this case
@@ -277,6 +283,7 @@ class FritzConnection:
         self.session = session
         self.timeout = timeout
         self.port = port
+        self.use_public_connection = use_public_connection
 
         self.soaper = Soaper(
             address, port, user, password, timeout=timeout, session=session
@@ -453,7 +460,7 @@ class FritzConnection:
             service = self.device_manager.services[service_name]
         except KeyError:
             raise FritzServiceError(f'unknown service: "{service_name}"')
-        return self.soaper.execute(service, action_name, arguments)
+        return self.soaper.execute(service, action_name, arguments, self.use_public_connection)
 
     def call_http(
         self,
@@ -651,8 +658,9 @@ class FritzConnection:
         Read the api data from the router and forwards the data to the
         device_manager.
         """
+        additional_folder = FRITZ_PUBLIC_TR64_FOLDER if self.use_public_connection else ""
         for description in FRITZ_DESCRIPTIONS:
-            source = f"{self.address}:{self.port}/{description}"
+            source = f"{self.address}:{self.port}/{additional_folder}{description}"
             try:
                 self.device_manager.add_description(source)
             except FritzResourceError:
@@ -668,4 +676,4 @@ class FritzConnection:
                         FRITZ_APPLICATION_ACCESS_DISABLED
                     )
         self.device_manager.scan()
-        self.device_manager.load_service_descriptions(self.address, self.port)
+        self.device_manager.load_service_descriptions(self.address, self.port, self.use_public_connection)
