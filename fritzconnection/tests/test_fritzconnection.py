@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 import pytest
 
@@ -151,3 +152,31 @@ def test_write_api_to_cache(file_name, cache_format, datadir):
     assert cache_file.exists() is False
 
 
+@pytest.mark.parametrize(
+    "public_connection_active", [
+        (False),
+        (True),
+    ]
+)
+def test_load_api_from_router_with(mocker, public_connection_active):
+    """Test for loading api from router."""
+    mock_add_description = mocker.patch(
+        "fritzconnection.core.devices.DeviceManager.add_description"
+    )
+    mock_scan = mocker.patch("fritzconnection.core.devices.DeviceManager.scan")
+    mock_load_service_description = mocker.patch(
+        "fritzconnection.core.devices.DeviceManager.load_service_descriptions"
+    )
+
+    connection = FritzConnection(address="testaddress", port=1234, 
+                                 use_public_connection=public_connection_active)
+    connection._load_api_from_router()
+
+    additional_folder = "tr064/" if public_connection_active else ""
+    expected_calls = [
+        mock.call(f"http://testaddress:1234/{additional_folder}igddesc.xml"),
+        mock.call(f"http://testaddress:1234/{additional_folder}tr64desc.xml")
+    ]
+    mock_add_description.assert_has_calls(expected_calls, any_order=True)
+    mock_scan.assert_called()
+    mock_load_service_description.assert_called()
