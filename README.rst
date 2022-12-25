@@ -31,6 +31,7 @@ The latter will install the dependency to enable QR-code creation for wifi login
 Quickstart:
 -----------
 
+
 Using fritzconnection is as easy as: ::
 
     from fritzconnection import FritzConnection
