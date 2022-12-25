@@ -33,6 +33,7 @@ Quickstart:
 
 Using fritzconnection is as easy as: ::
 
+
     from fritzconnection import FritzConnection
 
     fc = FritzConnection(address='192.168.178.1')
