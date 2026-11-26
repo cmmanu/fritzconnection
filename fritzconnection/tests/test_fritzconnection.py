@@ -15,6 +15,8 @@ from ..core.fritzconnection import (
     FRITZ_CACHE_FORMAT_PICKLE,
     FRITZ_CACHE_JSON_SUFFIX,
     FRITZ_CACHE_PICKLE_SUFFIX,
+    FRITZ_TCP_PORT,
+    FRITZ_TLS_PORT,
 )
 
 
@@ -152,31 +154,71 @@ def test_write_api_to_cache(file_name, cache_format, datadir):
     assert cache_file.exists() is False
 
 
+def _patch_router_api(mocker):
+    """Avoid network access while loading the api."""
+    return SimpleNamespace(
+        add_description=mocker.patch(
+            "fritzconnection.core.devices.DeviceManager.add_description"
+        ),
+        scan=mocker.patch("fritzconnection.core.devices.DeviceManager.scan"),
+        load_service_descriptions=mocker.patch(
+            "fritzconnection.core.devices.DeviceManager.load_service_descriptions"
+        ),
+    )
+
+
 @pytest.mark.parametrize(
-    "public_connection_active", [
-        (False),
-        (True),
+    "use_public_connection, expected_base, expected_prefix", [
+        (False, "http://testaddress:1234", ""),
+        (True, "https://testaddress:1234/tr064", "/tr064"),
     ]
 )
-def test_load_api_from_router_with(mocker, public_connection_active):
-    """Test for loading api from router."""
-    mock_add_description = mocker.patch(
-        "fritzconnection.core.devices.DeviceManager.add_description"
-    )
-    mock_scan = mocker.patch("fritzconnection.core.devices.DeviceManager.scan")
-    mock_load_service_description = mocker.patch(
-        "fritzconnection.core.devices.DeviceManager.load_service_descriptions"
+def test_load_api_from_router_with_public_connection(
+    mocker, use_public_connection, expected_base, expected_prefix
+):
+    """
+    Accessing the box from the internet requires https and the path prefix
+    "/tr064" for the description files and the scpd files.
+    """
+    mocks = _patch_router_api(mocker)
+
+    connection = FritzConnection(
+        address="testaddress",
+        port=1234,
+        use_public_connection=use_public_connection,
     )
 
-    connection = FritzConnection(address="testaddress", port=1234, 
-                                 use_public_connection=public_connection_active)
-    connection._load_api_from_router()
-
-    additional_folder = "tr064/" if public_connection_active else ""
-    expected_calls = [
-        mock.call(f"http://testaddress:1234/{additional_folder}igddesc.xml"),
-        mock.call(f"http://testaddress:1234/{additional_folder}tr64desc.xml")
+    assert mocks.add_description.call_args_list == [
+        mock.call(f"{expected_base}/igddesc.xml"),
+        mock.call(f"{expected_base}/tr64desc.xml"),
     ]
-    mock_add_description.assert_has_calls(expected_calls, any_order=True)
-    mock_scan.assert_called()
-    mock_load_service_description.assert_called()
+    mocks.scan.assert_called_once()
+    mocks.load_service_descriptions.assert_called_once_with(
+        connection.address, 1234, path_prefix=expected_prefix
+    )
+    assert connection.path_prefix == expected_prefix
+    assert connection.soaper.path_prefix == expected_prefix
+
+
+def test_public_connection_implies_tls(mocker):
+    """
+    use_public_connection enforces https and the default tls-port
+    in case no port is given.
+    """
+    _patch_router_api(mocker)
+    connection = FritzConnection(
+        address="example.myfritz.net", use_public_connection=True
+    )
+    assert connection.use_public_connection is True
+    assert connection.address == "https://example.myfritz.net"
+    assert connection.soaper.address == "https://example.myfritz.net"
+    assert connection.port == FRITZ_TLS_PORT
+
+
+def test_public_connection_default_is_off(mocker):
+    _patch_router_api(mocker)
+    connection = FritzConnection(address="192.168.178.1")
+    assert connection.use_public_connection is False
+    assert connection.path_prefix == ""
+    assert connection.address == "http://192.168.178.1"
+    assert connection.port == FRITZ_TCP_PORT
