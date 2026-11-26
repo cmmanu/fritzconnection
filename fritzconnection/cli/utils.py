@@ -54,7 +54,8 @@ def get_instance(cls, args):
         user=args.username,
         password=args.password,
         use_tls=args.encrypt,
-        use_public_connection=args.public_connection,
+        # getattr: keep working with argument namespaces of older callers
+        use_public_connection=getattr(args, 'public_connection', False),
         use_cache=args.use_cache,
         verify_cache=args.verify_cache,
         cache_directory=args.cache_directory,

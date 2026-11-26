@@ -1,4 +1,5 @@
 
+import inspect
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,6 +9,8 @@ import pytest
 
 from ..core.devices import DeviceManager
 from ..core.exceptions import FritzConnectionException
+from ..core.processor import Service
+from ..core.soaper import Soaper
 from ..core.fritzconnection import (
     FritzConnection,
     FRITZ_CACHE_DIR,
@@ -222,3 +225,41 @@ def test_public_connection_default_is_off(mocker):
     assert connection.path_prefix == ""
     assert connection.address == "http://192.168.178.1"
     assert connection.port == FRITZ_TCP_PORT
+
+
+@pytest.mark.parametrize(
+    "func, expected_leading_parameters", [
+        (
+            FritzConnection.__init__,
+            ["self", "address", "port", "user", "password", "timeout",
+             "use_tls", "use_cache", "verify_cache", "cache_directory",
+             "cache_format", "pool_connections", "pool_maxsize",
+             "redact_debug_log"],
+        ),
+        (
+            Soaper.__init__,
+            ["self", "address", "port", "user", "password", "timeout",
+             "session", "redact_debug_log"],
+        ),
+        (Soaper.execute, ["self", "service", "action_name", "arguments"]),
+        (
+            Service.load_scpd,
+            ["self", "address", "port", "timeout", "session"],
+        ),
+        (
+            DeviceManager.load_service_descriptions,
+            ["self", "address", "port"],
+        ),
+    ]
+)
+def test_public_connection_keeps_api_compatible(func, expected_leading_parameters):
+    """
+    The public connection support is optional: existing parameters keep
+    their positions and every new parameter is appended with a default,
+    so positional calls of existing code keep working.
+    """
+    parameters = list(inspect.signature(func).parameters.values())
+    leading = parameters[:len(expected_leading_parameters)]
+    assert [p.name for p in leading] == expected_leading_parameters
+    for parameter in parameters[len(expected_leading_parameters):]:
+        assert parameter.default is not inspect.Parameter.empty

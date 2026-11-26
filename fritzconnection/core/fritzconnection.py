@@ -189,13 +189,13 @@ class FritzConnection:
         timeout: float | None = None,
         use_tls: bool = False,
         use_cache: bool = False,
-        use_public_connection: bool = False,
         verify_cache: bool = True,
         cache_directory: str | Path | None = None,
         cache_format: str | None = None,
         pool_connections: int = DEFAULT_POOL_CONNECTIONS,
         pool_maxsize: int = DEFAULT_POOL_MAXSIZE,
-        redact_debug_log: bool = False
+        redact_debug_log: bool = False,
+        use_public_connection: bool = False,
     ):
         """
         Initialisation of FritzConnection: reads all data from the box
@@ -238,14 +238,6 @@ class FritzConnection:
         (True|False), FRITZ_CACHEFORMAT (json|pickle) and
         FRITZ_CACHEDIRECTORY (a path).
 
-        If `use_public_connection` is `True` the box is accessed from
-        the internet (FRITZ!Box remote access, e.g. via the MyFRITZ!
-        address). The FRITZ!Box provides TR-064 from the outside only
-        encrypted and under the path prefix `/tr064`, so this flag
-        implies `use_tls=True` and adds the prefix to all TR-064 urls.
-        `port` should be set to the TLS port shown in the FRITZ!Box
-        remote access settings. Default is `False`.
-
         If `verify_cache` is `True` it checks whether the model has
         changed or the system software has got an update. In this case
         the cache gets renewed. Default is `True`. Deactivating the
@@ -258,6 +250,14 @@ class FritzConnection:
 
         `redact_debug_log` accepts a boolean for enabling redacting some
         sensitiv data in debug outputs. Default is `False`.
+
+        If `use_public_connection` is `True` the box is accessed from
+        the internet (FRITZ!Box remote access, e.g. via the MyFRITZ!
+        address). The FRITZ!Box provides TR-064 from the outside only
+        encrypted and under the path prefix `/tr064`, so this flag
+        implies `use_tls=True` and adds the prefix to all TR-064 urls.
+        `port` should be set to the TLS port shown in the FRITZ!Box
+        remote access settings. Default is `False`.
         """
         if address is None:
             address = FRITZ_IP_ADDRESS
